@@ -12,6 +12,7 @@ import {
   signInUserInterface,
   signUpUserInterface,
 } from "@/lib/auth/user-auth";
+import { comparePasswords } from "@/lib/auth/session";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -39,13 +40,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               name: users.name,
               email: users.email,
               role: users.role,
+              passwordHash: users.passwordHash,
             })
             .from(users)
             .where(eq(users.email, credentials.email as string))
             .limit(1)
             .then((res) => res[0]);
 
-          if (!user) throw new Error("No credentials provided");
+          if (!user) throw new Error("Invalid email or password");
+
+          // 비밀번호 검증
+          if (!user.passwordHash) {
+            throw new Error("Invalid email or password");
+          }
+
+          const isPasswordValid = await comparePasswords(
+            credentials.password as string,
+            user.passwordHash
+          );
+
+          if (!isPasswordValid) {
+            throw new Error("Invalid email or password");
+          }
 
           return {
             id: user.id.toString(),
@@ -55,7 +71,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           };
         } catch (error) {
           console.error(error);
-          throw new Error("No credentials provided");
+          throw new Error("Invalid email or password");
         }
       },
     }),
